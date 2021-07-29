@@ -28,12 +28,11 @@ function useIndexedDb(databaseName) {
         }
       };
 
-
-      const saveRecord = (record)=>{
+      const saveTransaction = (data)=>{
         const transaction = db.transaction(["pending"],"readwrite");
         const store = transaction.objectStore("pending");
 
-        store.add(record);
+        store.add(data);
       }
 
       const checkDatabase = ()=>{
