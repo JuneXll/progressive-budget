@@ -13,15 +13,21 @@ const CACHE_NAME = "static-cache-v2";
 const DATA_CACHE_NAME = "data-cache-v1";
   
 // install
-self.addEventListener("install", function (evt) {
+self.addEventListener("install", (evt)=> {
   // pre cache data
   evt.waitUntil(
-    caches.open(DATA_CACHE_NAME).then((cache) => cache.add(FILES_TO_CACHE))
+    caches
+    .open(DATA_CACHE_NAME)
+    .then((cache) => {
+      console.log('Static Cache open')
+      return cache.addAll(FILES_TO_CACHE)})
   );
     
   // pre cache all static assets
   evt.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
+    caches
+    .open(CACHE_NAME)
+    .then((cache) => {
       console.log('Cache open')
       return cache.addAll(FILES_TO_CACHE)})
   );
@@ -32,13 +38,13 @@ self.addEventListener("install", function (evt) {
 
 // activate
 self.addEventListener("activate", event =>{
-  const currentCaches = [DATA_CACHE_NAME, DATA_CACHE_NAME];
+  const currentCaches = [CACHE_NAME, DATA_CACHE_NAME];
   event.waitUntil(
     caches
       .keys()
-      .then(cacheNames =>{
+      .then((cacheNames) =>{
         return cacheNames.filter(
-          cacheName => !currentCaches.includes(cacheName)
+          (cacheName) => !currentCaches.includes(cacheName)
         );
       })
       .then(cachesToDelete => {
@@ -48,13 +54,13 @@ self.addEventListener("activate", event =>{
           })
         );
       })
-      .then(() => self.cilents.claim())
+      .then(() => self.clients.claim())
   );
     
 })
 
 // fetch
-self.addEventListener("fetch", function(evt) {
+self.addEventListener("fetch", (evt) => {
   if (evt.request.url.includes("/api/")) {
     evt.respondWith(
       caches.open(DATA_CACHE_NAME).then(cache => {
