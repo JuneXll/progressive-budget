@@ -1,68 +1,87 @@
-function checkForIndexedDb() {
-    if (!window.indexedDB) {
-      console.log("Your browser doesn't support a stable version of IndexedDB.");
-      return false;
-    }
-    return true;
-  }
-  
-function useIndexedDb(databaseName) {
-    return new Promise((resolve, reject) => {
-      const request = window.indexedDB.open(databaseName, 1);
-      let db;
-  
-      request.onupgradeneeded = ({target})=>{
-        const db = target.result;
-        db.createObjectStore("pending", { autoIncrement: true});
-      };
-  
-      request.onerror = (e)=> {
-        console.log("There was an error" + e.target.errorCode);
-      };
-  
-      request.onsuccess = ({target})=>{
-        db = target.result;
+// function checkForIndexedDb() {
+//     if (!window.indexedDB) {
+//       console.log("Your browser doesn't support a stable version of IndexedDB.");
+//       return false;
+//     }
+//     return true;
+// }
 
-        if(navigator.onLine){
-            checkDatabase();
-        }
-      };
+let db;
+const request= indexedDB.open('budget', 1);
 
-      const saveTransaction = (data)=>{
-        const transaction = db.transaction(["pending"],"readwrite");
-        const store = transaction.objectStore("pending");
+request.onupgradeneeded = (event)=>{
+  console.log('Upgrade needed in IndexDB');
 
-        store.add(data);
-      }
+  const { oldVersion } = event;
+  const newVersion = event.newVersion || db.version;
 
-      const checkDatabase = ()=>{
-        const transaction = db.transaction(["pending"],"readwrite");
-        const store = transaction.objectStore("pending");
-        const getAll = store.getAll();
+  console.log(`DB Updated from version ${oldVersion} to ${newVersion}`);
 
-        getAll.onsuccess = ()=>{
-            if(getAll.result.length>0){
-                fetch("/api/transaction/bulk",{
-                    method: "POST",
-                    body: JSON.stringify(getAll.result),
-                    headers: {
-                        Accept: "application/json, text/plain, */*", "Content-Type":
-                        "application/json"
-                    }
-                })
-                .then(response=>{
-                    return response.json();
-                })
-                .then(()=>{
-                    const transaction = db.transaction(["pending"],"readwrite");
-                    const store = transaction.objectStore("pending");
-                    store.clear();
-                })
-            }
-        }
-      }
+  db = event.target.result;
 
+  if(db.objectStoreNames.length===0){
+    db.createObjectStore('pending',{
+      autoIncrement:true
     });
   }
-  
-  window.addEventListener("online",checkDatabase);
+};
+
+request.onerror = (event)=>{
+  console.log(`Whoops! ${event.target.errorCode}`);
+}
+
+function checkDatabase(){
+  console.log('Check db invoked');
+
+  let transaction = db.transaction(['pending'],'readwrite');
+
+  const store = transaction.objectStore('pending');
+
+  const getAll = store.getAll();
+
+  getAll.onsuccess = () => {
+    if(getAll.result.length>0){
+      fetch('/api/transaction/bulk',{
+        method: 'POST',
+        body: JSON.stringify(getAll.result),
+        headers: {
+          Accept: 'application/json, text/plain, */*', 'Content-Type':'application/json'
+        },
+      })
+        .then((response) => response.json())
+        .then((res) => {
+          if(res.length !== 0) {
+            transaction = db.transaction(['pending'],'readwrite');
+
+            const currentStore = transaction.objectStore('pending');
+
+            currentStore.clear();
+            console.log('Clearing store');
+          }
+        });
+    }
+  };
+}
+
+request.onsuccess = (event)=>{
+  console.log('Success!');
+  db = event.target.result;
+
+  if(navigator.onLine) {
+    console.log('Backend online');
+    checkDatabase();
+  }
+}
+
+const saveRecord = (record)=>{
+  console.log('Save record invoked');
+
+  const transaction = db.transaction(['pending'], 'readwrite');
+
+  const store = transaction.objectStore('pending');
+
+  store.add(record);
+}
+
+window.addEventListener('online',checkDatabase);
+
